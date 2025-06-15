@@ -1,8 +1,8 @@
 {
     "name": "radyakaze/phptelebot",
     "type": "framework",
-    "description": "Telegram bot framework written in PHP.",
-    "keywords": ["bot", "telegram"],
+    "description": "Telegram bot framework written in PHP with support for latest Bot API features including business accounts, gifts, and premium subscriptions.",
+    "keywords": ["bot", "telegram", "api", "business", "gifts", "premium"],
     "license": "GPL-3.0",
     "authors": [
         {"name": "Radya", "email": "radya@gmx.com"}
@@ -13,5 +13,6 @@
     },
     "autoload": {
         "files": ["src/PHPTelebot.php"]
-    }
+    },
+    "version": "2.0.0"
 }

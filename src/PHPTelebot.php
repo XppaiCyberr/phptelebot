@@ -52,7 +52,7 @@ class PHPTelebot
      *
      * @var string
      */
-    protected static $version = '1.3';
+    protected static $version = '2.0';
 
     /**
      * PHPTelebot Constructor.
@@ -216,6 +216,11 @@ class PHPTelebot
         $get = self::$getUpdates;
         $run = false;
 
+        // Handle business messages
+        if (isset($get['business_message'])) {
+            $get['message'] = $get['business_message'];
+        }
+
         if (isset($get['message']['date']) && $get['message']['date'] < (time() - 120)) {
             return '-- Pass --';
         }
@@ -267,6 +272,24 @@ class PHPTelebot
                     break;
                     case 'text':
                         $param = $get['message']['text'];
+                    break;
+                    case 'business_connection':
+                        $param = $get['business_connection'];
+                    break;
+                    case 'business_message':
+                        $param = $get['business_message'];
+                    break;
+                    case 'edited_business_message':
+                        $param = $get['edited_business_message'];
+                    break;
+                    case 'deleted_business_messages':
+                        $param = $get['deleted_business_messages'];
+                    break;
+                    case 'gift':
+                        $param = isset($get['message']['gift']) ? $get['message']['gift'] : (isset($get['message']['unique_gift']) ? $get['message']['unique_gift'] : '');
+                    break;
+                    case 'paid_message_price_changed':
+                        $param = $get['message']['paid_message_price_changed'];
                     break;
                     default:
                         $param = '';

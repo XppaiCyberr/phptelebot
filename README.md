@@ -1,10 +1,27 @@
-# PHPTelebot
-Telegram bot framework written in PHP
+# PHPTelebot v2.0
+Telegram bot framework written in PHP with support for the latest Bot API features
+
+## 🚀 New in v2.0
+
+* **Business Account Support** - Handle business connections and messages
+* **Gifts & Premium Features** - Support for Telegram gifts and premium subscriptions
+* **Enhanced Media Support** - Video notes, animations, paid media
+* **Modern Interactions** - Polls, dice games, reactions, boosts
+* **Forum Management** - Complete forum topic handling
+* **Web Apps Integration** - Full Web App support
+* **Advanced Keyboards** - Request users, chats, contacts, and locations
+* **Giveaways & Contests** - Handle Telegram giveaways
+* **Video Chat Events** - Monitor video chat activities
+* **Star Payments** - Handle Telegram Star transactions
 
 ## Features
 
 * Simple, easy to use.
 * Support Long Polling and Webhook.
+* Support for latest Telegram Bot API 9.0+ features
+* Business account integration
+* Comprehensive event handling
+* Modern inline keyboards and Web Apps
 
 ## Requirements
 
@@ -21,7 +38,7 @@ To install PHPTelebot with Composer, just add the following to your `composer.js
 ```json
 {
     "require": {
-        "radyakaze/phptelebot": "*"
+        "radyakaze/phptelebot": "^2.0"
     }
 }
 ```
@@ -46,19 +63,17 @@ Download the PHP library from Github, then include `PHPTelebot.php` in your scri
 require_once '/path/to/phptelebot/src/PHPTelebot.php';
 ```
 
-
 ## Usage
-
 
 ### Creating a simple bot
 ```php
 <?php
 
 require_once './src/PHPTelebot.php';
-$bot = new PHPTelebot('TOKEN', 'BOT_USERNAME'); // Bot username is optional, its required for handle command that contain username (/command@username) like on a group.
+$bot = new PHPTelebot('TOKEN', 'BOT_USERNAME'); // Bot username is optional
 
 // Simple command
-$bot->cmd('*', 'Hi, human! I am a bot.');
+$bot->cmd('*', 'Hi, human! I am a bot with latest Telegram features!');
 
 // Simple echo command
 $bot->cmd('/echo|/say', function ($text) {
@@ -68,34 +83,152 @@ $bot->cmd('/echo|/say', function ($text) {
     return Bot::sendMessage($text);
 });
 
-// Simple whoami command
-$bot->cmd('/whoami|!whoami', function () {
-    // Get message properties
-    $message = Bot::message();
-    $name = $message['from']['first_name'];
-    $userId = $message['from']['id'];
-    $text = 'You are <b>'.$name.'</b> and your ID is <code>'.$userId.'</code>';
-    $options = [
-        'parse_mode' => 'html',
-        'reply' => true
-    ];
+// Send a poll
+$bot->cmd('/poll', function () {
+    $question = 'What is your favorite programming language?';
+    $options = ['PHP', 'Python', 'JavaScript', 'Java', 'C++'];
+    
+    return Bot::sendPoll($question, [
+        'options' => json_encode($options),
+        'is_anonymous' => false,
+        'allows_multiple_answers' => true
+    ]);
+});
 
-    return Bot::sendMessage($text, $options);
+// Send dice games
+$bot->cmd('/dice', function () {
+    return Bot::sendDice('🎲'); // Dice
+});
+
+$bot->cmd('/dart', function () {
+    return Bot::sendDice('🎯'); // Dart
+});
+
+$bot->cmd('/basketball', function () {
+    return Bot::sendDice('🏀'); // Basketball
 });
 
 $bot->run();
 ```
-Then run
-```shell
-php file.php
+
+## 🆕 New Features Examples
+
+### Business Account Support
+```php
+// Handle business connections
+$bot->on('business_connection', function ($connection) {
+    return Bot::sendMessage('Business connection established!', [
+        'business_connection_id' => $connection['id']
+    ]);
+});
+
+// Handle business messages
+$bot->on('business_message', function ($message) {
+    return Bot::sendMessage('Received: ' . $message['text'], [
+        'business_connection_id' => $message['business_connection_id']
+    ]);
+});
 ```
 
-You can also see my other [sample](https://github.com/radyakaze/phptelebot/blob/master/sample.php).
+### Gifts and Premium Features
+```php
+// Handle gifts
+$bot->on('gift', function ($gift) {
+    $giftType = isset($gift['sticker']) ? 'regular gift' : 'unique gift';
+    return Bot::sendMessage("Thank you for the $giftType! 🎁");
+});
 
-*NOTE:*
-- If function parameters is more than one, PHPTelebot will split text by space.
-- If you don't set chat_id on options bot will send message to current chat.
-- If you add option **reply => true**, bot will reply current message (Only work if you don't set custom chat_id and reply_to_mesage_id).
+// Handle paid media
+$bot->on('paid_media', function () {
+    return Bot::sendMessage('Thank you for purchasing paid media! ⭐');
+});
+
+// Send gifts (requires appropriate permissions)
+$bot->cmd('/sendgift', function () {
+    return Bot::sendGift('gift_id_here');
+});
+```
+
+### Modern Keyboards and Web Apps
+```php
+$bot->cmd('/keyboard', function () {
+    $keyboard[] = [
+        ['text' => 'Web App', 'web_app' => ['url' => 'https://example.com/webapp']],
+        ['text' => 'Request Contact', 'request_contact' => true],
+    ];
+    $keyboard[] = [
+        ['text' => 'Request Users', 'request_users' => [
+            'request_id' => 1,
+            'user_is_bot' => false
+        ]],
+        ['text' => 'Request Chat', 'request_chat' => [
+            'request_id' => 2,
+            'chat_is_channel' => false
+        ]],
+    ];
+    
+    return Bot::sendMessage('Modern keyboard features', [
+        'reply_markup' => ['inline_keyboard' => $keyboard]
+    ]);
+});
+```
+
+### Enhanced Media Support
+```php
+// Send animations/GIFs
+$bot->cmd('/gif', function () {
+    return Bot::sendAnimation('https://example.com/animation.gif', [
+        'caption' => 'Cool animation!'
+    ]);
+});
+
+// Send video notes (circle videos)
+$bot->cmd('/videonote', function () {
+    return Bot::sendVideoNote('/path/to/video_note.mp4');
+});
+
+// Send paid media
+$bot->cmd('/paidmedia', function () {
+    return Bot::sendPaidMedia(100, [ // 100 stars
+        'media' => json_encode([
+            ['type' => 'photo', 'media' => 'photo_url_here']
+        ])
+    ]);
+});
+```
+
+### Forum and Community Features
+```php
+// Handle forum topics
+$bot->on('forum_topic_created', function ($topic) {
+    return Bot::sendMessage("New topic: " . $topic['name']);
+});
+
+// Handle chat boosts
+$bot->on('chat_boost', function ($boost) {
+    $booster = $boost['source']['user']['first_name'] ?? 'Anonymous';
+    return Bot::sendMessage("Thanks for boosting, $booster! 🚀");
+});
+
+// Handle message reactions
+$bot->on('message_reaction', function ($reaction) {
+    $userId = $reaction['user']['id'] ?? 'Unknown';
+    return Bot::sendMessage("User $userId reacted to a message");
+});
+```
+
+### Giveaways and Contests
+```php
+// Handle giveaways
+$bot->on('giveaway', function ($giveaway) {
+    $prizeCount = $giveaway['winner_count'];
+    return Bot::sendMessage("Giveaway with $prizeCount prizes! 🎉");
+});
+
+$bot->on('giveaway_completed', function ($completed) {
+    return Bot::sendMessage("Giveaway completed! 🏆");
+});
+```
 
 ## Commands
 
@@ -117,44 +250,11 @@ $bot->cmd('/google', 'googleSearch');
 ```
 Use **&#42;** to catch any command.
 
-#### File upload
-This code will send a photo to users when type command **/upload**.
-```php
-// Simple photo upload
-$bot->cmd('/upload', function () {
-    $file = '/path/to/photo.png'; // File path, file id, or url.
-    return Bot::sendPhoto($file);
-});
-```
-
 ## Events
 
 Use `$bot->on(<event>, <function>)` to handle all possible PHPTelebot events.
 
-To handle inline message, just add:
-```php
-$bot->on('inline', function($text) {
-    $results[] = [
-        'type' => 'article',
-        'id' => 'unique_id1',
-        'title' => $text,
-        'message_text' => 'Lorem ipsum dolor sit amet',
-    ];
-    $options = [
-        'cache_time' => 3600,
-    ];
-
-    return Bot::answerInlineQuery($results, $options);
-});
-```
-Also, you can catch multiple events:
-```php
-$bot->on('sticker|photo|document', function() {
-  // Do something here.
- });
-```
-
-## Supported events:
+### Supported events:
 - **&#42;** - any type of message
 - **text** – text message
 - **audio** – audio file
@@ -163,11 +263,25 @@ $bot->on('sticker|photo|document', function() {
 - **photo** – photo
 - **sticker** – sticker
 - **video** – video file
+- **video_note** – video note (circle video)
+- **animation** – animation/GIF
 - **contact** – contact data
 - **location** – location data
 - **venue** – venue data
-- **edited** – edited message
-- **pinned_message** – message was pinned
+- **poll** – poll
+- **dice** – dice result
+- **game** – game
+- **paid_media** – paid media content
+- **gift** – gift (regular or unique)
+- **paid_message_price_changed** – paid message price change
+
+### Business Events:
+- **business_connection** – business account connection
+- **business_message** – business account message
+- **edited_business_message** – edited business message
+- **deleted_business_messages** – deleted business messages
+
+### Chat Events:
 - **new_chat_member** – new member was added
 - **left_chat_member** – member was removed
 - **new_chat_title** – new chat title
@@ -178,11 +292,58 @@ $bot->on('sticker|photo|document', function() {
 - **supergroup_chat_created** – supergroup has been created
 - **migrate_to_chat_id** – group has been migrated to a supergroup
 - **migrate_from_chat_id** – supergroup has been migrated from a group
+- **pinned_message** – message was pinned
+- **invoice** – invoice for payment
+- **successful_payment** – successful payment
+- **refunded_payment** – refunded payment
+- **users_shared** – users shared
+- **chat_shared** – chat shared
+- **connected_website** – website connected
+- **write_access_allowed** – write access allowed
+- **passport_data** – Telegram Passport data
+- **proximity_alert_triggered** – proximity alert triggered
+- **boost_added** – boost added to chat
+- **chat_background_set** – chat background set
+
+### Forum Events:
+- **forum_topic_created** – forum topic created
+- **forum_topic_edited** – forum topic edited
+- **forum_topic_closed** – forum topic closed
+- **forum_topic_reopened** – forum topic reopened
+- **general_forum_topic_hidden** – general forum topic hidden
+- **general_forum_topic_unhidden** – general forum topic unhidden
+
+### Giveaway Events:
+- **giveaway_created** – giveaway created
+- **giveaway** – giveaway message
+- **giveaway_winners** – giveaway winners selected
+- **giveaway_completed** – giveaway completed
+
+### Video Chat Events:
+- **video_chat_scheduled** – video chat scheduled
+- **video_chat_started** – video chat started
+- **video_chat_ended** – video chat ended
+- **video_chat_participants_invited** – participants invited to video chat
+
+### Other Events:
+- **edited** – edited message
 - **inline** - inline message
+- **chosen_inline_result** - chosen inline result
 - **callback** - callback message
-- **game** - game
-- **channel** - channel
+- **shipping_query** - shipping query
+- **pre_checkout_query** - pre-checkout query
+- **poll_update** - poll state update
+- **poll_answer** - poll answer
+- **my_chat_member** - bot's chat member status update
+- **chat_member** - chat member status update
+- **chat_join_request** - chat join request
+- **chat_boost** - chat boost
+- **removed_chat_boost** - removed chat boost
+- **message_reaction** - message reaction
+- **message_reaction_count** - message reaction count update
+- **channel** - channel post
 - **edited_channel** - edited channel post
+- **web_app_data** - web app data
 
 ## Command with custom regex *(advanced)*
 
@@ -198,77 +359,85 @@ $bot->regex('/^\/regex (.*) ([0-9])$/i', function($matches) {
 ### PHPTelebot Methods
 ##### `cmd(<command>, <answer>)`
 Handle a command.
+
 ##### `on(<event>, <answer>)`
-Handles events.
+Handle an event.
+
 ##### `regex(<regex>, <answer>)`
-Create custom regex for command.
-##### `Bot::type()`
-Return [message event](#supported-events) type.
-##### `Bot::message()`
-Get [message properties](https://core.telegram.org/bots/api#message).
+Handle a custom regex pattern.
 
-### Telegram Methods
-PHPTelebot use standard [Telegram Bot API](https://core.telegram.org/bots/api#available-methods) method names.
-##### `Bot::getMe()` [?](https://core.telegram.org/bots/api#getme)
-A simple method for testing your bot's auth token.
-##### `Bot::sendMessage(<text>, <options>)` [?](https://core.telegram.org/bots/api#sendmessage)
-Use this method to send text messages.
-##### `Bot::forwardMessage(<options>)` [?](https://core.telegram.org/bots/api#forwardmessage)
-Use this method to forward messages of any kind.
-##### `Bot::sendPhoto(<file path | file id | url>, <options>)` [?](https://core.telegram.org/bots/api#sendphoto)
-Use this method to send a photo.
-##### `Bot::sendVideo(<file path | file id | url>, <options>)` [?](https://core.telegram.org/bots/api#sendvideo)
-Use this method to send a video.
-##### `Bot::sendAudio(<file path | file id | url>, <options>)` [?](https://core.telegram.org/bots/api#sendaudio)
-Use this method to send a audio.
-##### `Bot::sendVoice(<file path | file id | url>, <options>)` [?](https://core.telegram.org/bots/api#sendvoice)
-Use this method to send a voice message.
-##### `Bot::sendDocument(<file path | file id | url>, <options>)` [?](https://core.telegram.org/bots/api#senddocument)
-Use this method to send a document.
-##### `Bot::sendSticker(<file path | file id | url>, <options>)` [?](https://core.telegram.org/bots/api#sendsticker)
-Use this method to send a sticker.
-##### `Bot::sendLocation(<options>)` [?](https://core.telegram.org/bots/api#sendlocation)
-Use this method to send point on the map.
-##### `Bot::sendVenue(<options>)` [?](https://core.telegram.org/bots/api#sendvenue)
-Use this method to send information about a venue.
-##### `Bot::sendContact(<options>)` [?](https://core.telegram.org/bots/api#sendcontact)
-Use this method to send phone contacts.
-##### `Bot::sendChatAction(<action>, <options>)` [?](https://core.telegram.org/bots/api#sendchataction)
-Use this method when you need to tell the user that something is happening on the bot's side.
-##### `Bot::getUserProfilePhotos(<user id>, <options>)` [?](https://core.telegram.org/bots/api#getuserprofilephotos)
-Use this method to get a list of profile pictures for a user.
-##### `Bot::getFile(<file id>)` [?](https://core.telegram.org/bots/api#getfile)
-Use this method to get basic info about a file and prepare it for downloading. For the moment, bots can download files of up to 20MB in size.
-##### `Bot::answerInlineQuery(<array of results>, <options>)` [?](https://core.telegram.org/bots/api#answerinlinequery)
-Use this method to send answers to an inline query.
-##### `Bot::answerCallbackQuery(<text>, <options>)` [?](https://core.telegram.org/bots/api#answercallbackquery)
-Use this method to send answers to callback queries sent from inline keyboards.
-##### `Bot::getChat(<chat_id>)` [?](https://core.telegram.org/bots/api#getchat)
-Use this method to get up to date information about the chat.
-##### `Bot::leaveChat(<chat_id>)` [?](https://core.telegram.org/bots/api#leavechat)
-Use this method for your bot to leave a group, supergroup or channel.
-##### `Bot::getChatAdministrators(<chat_id>)` [?](https://core.telegram.org/bots/api#getchatadministrators)
-Use this method to get a list of administrators in a chat.
-##### `Bot::getChatMembersCount(<chat_id>)` [?](https://core.telegram.org/bots/api#getchatmemberscount)
-Use this method to get the number of members in a chat.
-##### `Bot::getChatMember(<options>)` [?](https://core.telegram.org/bots/api#getchatmember)
-Use this method to get information about a member of a chat.
-##### `Bot::kickChatMember(<options>)` [?](https://core.telegram.org/bots/api#kickchatmember)
-Use this method to kick a user from a group or a supergroup.
-##### `Bot::unbanChatMember(<options>)` [?](https://core.telegram.org/bots/api#unbanchatmember)
-Use this method to unban a previously kicked user in a supergroup.
-##### `Bot::editMessageText(<options>)` [?](https://core.telegram.org/bots/api#editmessagetext)
-Use this method to edit text messages sent by the bot or via the bot (for inline bots).
-##### `Bot::editMessageCaption(<options>)` [?](https://core.telegram.org/bots/api#editmessagecaption)
-Use this method to edit captions of messages sent by the bot or via the bot (for inline bots).
-##### `Bot::editMessageReplyMarkup(<options>)` [?](https://core.telegram.org/bots/api#editmessagereplymarkup)
-Use this method to edit only the reply markup of messages sent by the bot or via the bot (for inline bots).
-#####  `Bot::sendGame(<game short name>, <options>)` [?](https://core.telegram.org/bots/api#sendgame)
-Use this method to send a game.
-##### `Bot::setGameScore(<options>)` [?](https://core.telegram.org/bots/api#setgamescore)
-Use this method to set the score of the specified user in a game.
-##### `Bot::getGameHighScores(<user id>, <options>)` [?](https://core.telegram.org/bots/api#getgamehighscores)
-Use this method to get data for high score tables.
+##### `run()`
+Start the bot (Long Polling or Webhook mode).
 
-## Webhook installation
-Open via browser `https://api.telegram.org/bot<BOT TOKEN>/setWebhook?url=https://yourdomain.com/your_bot.php`
+### Bot Methods (Static)
+All Telegram Bot API methods are supported through magic methods:
+
+#### Sending Messages
+- `Bot::sendMessage($text, $options)`
+- `Bot::sendPhoto($photo, $options)`
+- `Bot::sendVideo($video, $options)`
+- `Bot::sendVideoNote($videoNote, $options)`
+- `Bot::sendAnimation($animation, $options)`
+- `Bot::sendAudio($audio, $options)`
+- `Bot::sendVoice($voice, $options)`
+- `Bot::sendDocument($document, $options)`
+- `Bot::sendSticker($sticker, $options)`
+- `Bot::sendLocation($latitude, $longitude, $options)`
+- `Bot::sendVenue($latitude, $longitude, $title, $address, $options)`
+- `Bot::sendContact($phoneNumber, $firstName, $options)`
+- `Bot::sendPoll($question, $options)`
+- `Bot::sendDice($emoji, $options)`
+- `Bot::sendPaidMedia($starCount, $options)`
+- `Bot::sendGift($giftId, $options)`
+
+#### Chat Management
+- `Bot::getChat($chatId)`
+- `Bot::getChatMember($chatId, $userId)`
+- `Bot::getChatMemberCount($chatId)`
+- `Bot::banChatMember($chatId, $userId, $options)`
+- `Bot::unbanChatMember($chatId, $userId, $options)`
+- `Bot::restrictChatMember($chatId, $userId, $permissions, $options)`
+- `Bot::promoteChatMember($chatId, $userId, $options)`
+
+#### Forum Management
+- `Bot::createForumTopic($chatId, $name, $options)`
+- `Bot::editForumTopic($chatId, $messageThreadId, $options)`
+- `Bot::closeForumTopic($chatId, $messageThreadId)`
+- `Bot::reopenForumTopic($chatId, $messageThreadId)`
+- `Bot::deleteForumTopic($chatId, $messageThreadId)`
+
+#### Business Features
+- `Bot::getBusinessConnection($businessConnectionId)`
+
+#### Star Payments
+- `Bot::refundStarPayment($userId, $telegramPaymentChargeId)`
+- `Bot::getStarTransactions($options)`
+
+And many more! All Bot API methods are available through the magic `__callStatic` method.
+
+## Migration from v1.x
+
+### Breaking Changes
+- Version updated to 2.0
+- Enhanced event handling for new message types
+- Business message support requires handling business_connection_id
+- Some method signatures may have changed for consistency
+
+### New Features to Adopt
+1. **Business Integration**: Add business event handlers
+2. **Enhanced Media**: Use new media types (video_note, animation, paid_media)
+3. **Modern Keyboards**: Implement Web Apps and request buttons
+4. **Community Features**: Handle reactions, boosts, and forum topics
+5. **Giveaways**: Implement giveaway event handling
+
+## License
+
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Support
+
+If you find this project helpful, please give it a ⭐ on GitHub!
