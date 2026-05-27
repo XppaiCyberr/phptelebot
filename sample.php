@@ -2,8 +2,45 @@
 
 require_once __DIR__.'/src/PHPTelebot.php';
 
-$token = getenv('TELEGRAM_BOT_TOKEN') ?: 'TOKEN';
-$username = getenv('TELEGRAM_BOT_USERNAME') ?: 'BOT_USERNAME';
+function sampleCredentials($path)
+{
+    if (!is_file($path)) {
+        die("Create x.c with token and username before running sample.php.\nExample:\ntoken=123456:ABCDEF\nusername=YourBot\n");
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $config = [];
+    $values = [];
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line == '' || substr($line, 0, 1) == '#') {
+            continue;
+        }
+
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $config[trim($key)] = trim($value);
+        } else {
+            $values[] = $line;
+        }
+    }
+
+    if (isset($config['token'])) {
+        return [
+            'token' => $config['token'],
+            'username' => isset($config['username']) ? $config['username'] : '',
+        ];
+    }
+
+    return [
+        'token' => isset($values[0]) ? $values[0] : '',
+        'username' => isset($values[1]) ? $values[1] : '',
+    ];
+}
+
+$credentials = sampleCredentials(__DIR__.'/x.c');
+$token = $credentials['token'];
+$username = ltrim($credentials['username'], '@');
 
 $bot = new PHPTelebot($token, $username, [
     'allowed_updates' => [
