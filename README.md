@@ -5,6 +5,7 @@ Telegram bot framework written in PHP
 
 * Simple, easy to use.
 * Support Long Polling and Webhook.
+* Supports current Telegram Bot API methods and update types.
 
 ## Requirements
 
@@ -95,7 +96,13 @@ You can also see my other [sample](https://github.com/radyakaze/phptelebot/blob/
 *NOTE:*
 - If function parameters is more than one, PHPTelebot will split text by space.
 - If you don't set chat_id on options bot will send message to current chat.
-- If you add option **reply => true**, bot will reply current message (Only work if you don't set custom chat_id and reply_to_mesage_id).
+- If you add option **reply => true**, bot will reply to the current message with Telegram's `reply_parameters` format (only when you don't set custom `chat_id`, `reply_parameters`, or `reply_to_message_id`).
+- For long polling updates that Telegram does not send by default, pass `allowed_updates` in the constructor:
+```php
+$bot = new PHPTelebot('TOKEN', 'BOT_USERNAME', [
+    'allowed_updates' => ['message', 'callback_query', 'chat_member', 'message_reaction', 'message_reaction_count'],
+]);
+```
 
 ## Commands
 
@@ -155,34 +162,10 @@ $bot->on('sticker|photo|document', function() {
 ```
 
 ## Supported events:
-- **&#42;** - any type of message
-- **text** – text message
-- **audio** – audio file
-- **voice** – voice message
-- **document** – document file (any kind)
-- **photo** – photo
-- **sticker** – sticker
-- **video** – video file
-- **contact** – contact data
-- **location** – location data
-- **venue** – venue data
-- **edited** – edited message
-- **pinned_message** – message was pinned
-- **new_chat_member** – new member was added
-- **left_chat_member** – member was removed
-- **new_chat_title** – new chat title
-- **new_chat_photo** – new chat photo
-- **delete_chat_photo** – chat photo was deleted
-- **group_chat_created** – group has been created
-- **channel_chat_created** – channel has been created
-- **supergroup_chat_created** – supergroup has been created
-- **migrate_to_chat_id** – group has been migrated to a supergroup
-- **migrate_from_chat_id** – supergroup has been migrated from a group
-- **inline** - inline message
-- **callback** - callback message
-- **game** - game
-- **channel** - channel
-- **edited_channel** - edited channel post
+- **&#42;** - any update or message type
+- Message content events include `text`, `animation`, `audio`, `document`, `live_photo`, `paid_media`, `photo`, `sticker`, `story`, `video`, `video_note`, `voice`, `checklist`, `contact`, `dice`, `game`, `poll`, `venue`, `location`, and Telegram service-message fields such as `pinned_message`, `new_chat_members`, `forum_topic_created`, `giveaway`, `managed_bot_created`, and `web_app_data`.
+- Update events include `business_connection`, `business_message`, `edited_business_message`, `deleted_business_messages`, `guest_message`, `message_reaction`, `message_reaction_count`, `chosen_inline_result`, `shipping_query`, `pre_checkout_query`, `purchased_paid_media`, `poll_answer`, `my_chat_member`, `chat_member`, `chat_join_request`, `chat_boost`, `removed_chat_boost`, and `managed_bot`.
+- Backward-compatible aliases are supported for `inline`, `callback`, `edited`, `channel`, `edited_channel`, and `new_chat_member`.
 
 ## Command with custom regex *(advanced)*
 
@@ -209,6 +192,14 @@ Get [message properties](https://core.telegram.org/bots/api#message).
 
 ### Telegram Methods
 PHPTelebot use standard [Telegram Bot API](https://core.telegram.org/bots/api#available-methods) method names.
+Any Bot API method can be called by method name. For methods not listed below, pass Telegram parameter names as an array:
+```php
+Bot::deleteMessages([
+    'chat_id' => 123456,
+    'message_ids' => [123, 124],
+]);
+```
+Array/object parameters are JSON-encoded automatically. Local file paths in top-level `InputFile` parameters are uploaded with `multipart/form-data`.
 ##### `Bot::getMe()` [?](https://core.telegram.org/bots/api#getme)
 A simple method for testing your bot's auth token.
 ##### `Bot::sendMessage(<text>, <options>)` [?](https://core.telegram.org/bots/api#sendmessage)
@@ -249,12 +240,12 @@ Use this method to get up to date information about the chat.
 Use this method for your bot to leave a group, supergroup or channel.
 ##### `Bot::getChatAdministrators(<chat_id>)` [?](https://core.telegram.org/bots/api#getchatadministrators)
 Use this method to get a list of administrators in a chat.
-##### `Bot::getChatMembersCount(<chat_id>)` [?](https://core.telegram.org/bots/api#getchatmemberscount)
+##### `Bot::getChatMemberCount(<chat_id>)` [?](https://core.telegram.org/bots/api#getchatmembercount)
 Use this method to get the number of members in a chat.
 ##### `Bot::getChatMember(<options>)` [?](https://core.telegram.org/bots/api#getchatmember)
 Use this method to get information about a member of a chat.
-##### `Bot::kickChatMember(<options>)` [?](https://core.telegram.org/bots/api#kickchatmember)
-Use this method to kick a user from a group or a supergroup.
+##### `Bot::banChatMember(<options>)` [?](https://core.telegram.org/bots/api#banchatmember)
+Use this method to ban a user from a group or a supergroup.
 ##### `Bot::unbanChatMember(<options>)` [?](https://core.telegram.org/bots/api#unbanchatmember)
 Use this method to unban a previously kicked user in a supergroup.
 ##### `Bot::editMessageText(<options>)` [?](https://core.telegram.org/bots/api#editmessagetext)

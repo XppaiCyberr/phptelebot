@@ -28,6 +28,10 @@ class PHPTelebot
      */
     protected $_onMessage = [];
     /**
+     * @var array
+     */
+    protected $_options = [];
+    /**
      * Bot token.
      *
      * @var string
@@ -52,15 +56,16 @@ class PHPTelebot
      *
      * @var string
      */
-    protected static $version = '1.3';
+    protected static $version = '1.4';
 
     /**
      * PHPTelebot Constructor.
      *
      * @param string $token
      * @param string $username
+     * @param array  $options
      */
-    public function __construct($token, $username = '')
+    public function __construct($token, $username = '', $options = [])
     {
         // Check php version
         if (version_compare(phpversion(), '5.4', '<')) {
@@ -79,6 +84,7 @@ class PHPTelebot
 
         self::$token = $token;
         self::$username = $username;
+        $this->_options = is_array($options) ? $options : [];
     }
 
     /**
@@ -156,7 +162,8 @@ class PHPTelebot
      */
     private function webhook()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['CONTENT_TYPE'] == 'application/json') {
+        $contentType = isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '';
+        if ($_SERVER['REQUEST_METHOD'] == 'POST' && strpos($contentType, 'application/json') === 0) {
             self::$getUpdates = json_decode(file_get_contents('php://input'), true);
             echo $this->process();
         } else {
@@ -174,7 +181,8 @@ class PHPTelebot
     {
         $offset = 0;
         while (true) {
-            $req = json_decode(Bot::send('getUpdates', ['offset' => $offset, 'timeout' => 30]), true);
+            $request = array_merge(['timeout' => 30], $this->_options, ['offset' => $offset]);
+            $req = json_decode(Bot::send('getUpdates', $request), true);
 
             // Check error.
             if (isset($req['error_code'])) {
@@ -214,26 +222,27 @@ class PHPTelebot
     private function process()
     {
         $get = self::$getUpdates;
+        $message = $this->currentMessage();
         $run = false;
 
-        if (isset($get['message']['date']) && $get['message']['date'] < (time() - 120)) {
+        if (isset($message['date']) && $message['date'] < (time() - 120)) {
             return '-- Pass --';
         }
 
-        if (Bot::type() == 'text') {
-            $customRegex = false;
+        if (Bot::type() == 'text' && isset($message['text'])) {
             foreach ($this->_command as $cmd => $call) {
+                $customRegex = false;
                 if (substr($cmd, 0, 12) == 'customRegex:') {
                     $regex = substr($cmd, 12);
                     // Remove bot username from command
                      if (self::$username != '') {
-                         $get['message']['text'] = preg_replace('/^\/(.*)@'.self::$username.'(.*)/', '/$1$2', $get['message']['text']);
+                         $message['text'] = preg_replace('/^\/(.*)@'.self::$username.'(.*)/', '/$1$2', $message['text']);
                      }
                     $customRegex = true;
                 } else {
                     $regex = '/^(?:'.addcslashes($cmd, '/\+*?[^]$(){}=!<>:-').')'.(self::$username ? '(?:@'.self::$username.')?' : '').'(?:\s(.*))?$/';
                 }
-                if ($get['message']['text'] != '*' && preg_match($regex, $get['message']['text'], $matches)) {
+                if ($message['text'] != '*' && preg_match($regex, $message['text'], $matches)) {
                     $run = true;
                     if ($customRegex) {
                         $param = [$matches];
@@ -246,10 +255,16 @@ class PHPTelebot
         }
 
         if (isset($this->_onMessage) && $run === false) {
-            if (in_array(Bot::type(), array_keys($this->_onMessage))) {
-                $run = true;
-                $call = $this->_onMessage[Bot::type()];
-            } elseif (isset($this->_onMessage['*'])) {
+            $eventTypes = $this->eventTypes(Bot::type(), Bot::updateType());
+            foreach ($eventTypes as $eventType) {
+                if (isset($this->_onMessage[$eventType])) {
+                    $run = true;
+                    $call = $this->_onMessage[$eventType];
+                    break;
+                }
+            }
+
+            if (!$run && isset($this->_onMessage['*'])) {
                 $run = true;
                 $call = $this->_onMessage['*'];
             }
@@ -257,19 +272,25 @@ class PHPTelebot
             if ($run) {
                 switch (Bot::type()) {
                     case 'callback':
-                        $param = $get['callback_query']['data'];
+                        $param = isset($get['callback_query']['data']) ? $get['callback_query']['data'] : '';
                     break;
                     case 'inline':
-                        $param = $get['inline_query']['query'];
+                        $param = isset($get['inline_query']['query']) ? $get['inline_query']['query'] : '';
                     break;
                     case 'location':
-                        $param = [$get['message']['location']['longitude'], $get['message']['location']['latitude']];
+                        $param = [$message['location']['longitude'], $message['location']['latitude']];
                     break;
                     case 'text':
-                        $param = $get['message']['text'];
+                        $param = $message['text'];
                     break;
                     default:
-                        $param = '';
+                        if (isset($message[Bot::type()])) {
+                            $param = $message[Bot::type()];
+                        } elseif (isset($get[Bot::updateType()])) {
+                            $param = $get[Bot::updateType()];
+                        } else {
+                            $param = '';
+                        }
                     break;
                 }
             }
@@ -293,6 +314,69 @@ class PHPTelebot
                 }
             }
         }
+    }
+
+    /**
+     * Current message-like update payload.
+     *
+     * @return array
+     */
+    private function currentMessage()
+    {
+        $get = self::$getUpdates;
+        $fields = [
+            'message', 'business_message', 'guest_message', 'edited_message',
+            'channel_post', 'edited_channel_post', 'edited_business_message',
+        ];
+
+        foreach ($fields as $field) {
+            if (isset($get[$field])) {
+                return $get[$field];
+            }
+        }
+
+        if (isset($get['callback_query']['message'])) {
+            return $get['callback_query']['message'];
+        }
+
+        return [];
+    }
+
+    /**
+     * Candidate event names for handler matching.
+     *
+     * @param string $type
+     * @param string $updateType
+     *
+     * @return array
+     */
+    private function eventTypes($type, $updateType)
+    {
+        $types = [$type, $updateType];
+        $aliases = [
+            'inline' => ['inline_query'],
+            'inline_query' => ['inline'],
+            'callback' => ['callback_query'],
+            'callback_query' => ['callback'],
+            'edited' => ['edited_message'],
+            'edited_message' => ['edited'],
+            'channel' => ['channel_post'],
+            'channel_post' => ['channel'],
+            'edited_channel' => ['edited_channel_post'],
+            'edited_channel_post' => ['edited_channel'],
+            'new_chat_members' => ['new_chat_member'],
+            'new_chat_member' => ['new_chat_members'],
+        ];
+
+        foreach ($types as $candidate) {
+            if (isset($aliases[$candidate])) {
+                $types = array_merge($types, $aliases[$candidate]);
+            }
+        }
+
+        return array_values(array_unique(array_filter($types, function ($value) {
+            return $value != '' && $value != 'unknown';
+        })));
     }
 }
 
