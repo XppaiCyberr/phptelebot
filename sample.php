@@ -2,10 +2,23 @@
 
 require_once __DIR__.'/src/PHPTelebot.php';
 
-$bot = new PHPTelebot('TOKEN', 'BOT_USERNAME');
+$token = getenv('TELEGRAM_BOT_TOKEN') ?: 'TOKEN';
+$username = getenv('TELEGRAM_BOT_USERNAME') ?: 'BOT_USERNAME';
 
-// Simple answer
-$bot->cmd('*', 'Hi, human! I am a bot.');
+$bot = new PHPTelebot($token, $username, [
+    'allowed_updates' => [
+        'message',
+        'edited_message',
+        'callback_query',
+        'inline_query',
+        'business_message',
+        'guest_message',
+        'message_reaction',
+        'message_reaction_count',
+        'chat_member',
+        'managed_bot',
+    ],
+]);
 
 // Simple echo command
 $bot->cmd('/echo|/say', function ($text) {
@@ -14,6 +27,14 @@ $bot->cmd('/echo|/say', function ($text) {
     }
 
     return Bot::sendMessage($text);
+});
+
+// Show the current update and message type.
+$bot->cmd('/status', function () {
+    $text = "Update type: ".Bot::updateType()."\n";
+    $text .= "Event type: ".Bot::type();
+
+    return Bot::sendMessage($text, ['reply' => true]);
 });
 
 // Simple whoami command
@@ -44,20 +65,46 @@ $bot->cmd('/split', function ($one, $two, $three) {
 $bot->cmd('/upload', function () {
     $file = './composer.json';
 
-    return Bot::sendDocument($file);
+    return Bot::sendDocument([
+        'document' => $file,
+        'caption' => 'composer.json uploaded from a local path',
+    ]);
 });
 
 // inline keyboard
 $bot->cmd('/keyboard', function () {
     $keyboard[] = [
         ['text' => 'PHPTelebot', 'url' => 'https://github.com/radyakaze/phptelebot'],
-        ['text' => 'Haru bot', 'url' => 'https://telegram.me/harubot'],
+        ['text' => 'Callback', 'callback_data' => 'sample_callback'],
     ];
     $options = [
         'reply_markup' => ['inline_keyboard' => $keyboard],
     ];
 
     return Bot::sendMessage('Inline keyboard', $options);
+});
+
+// Send a poll with nested array parameters. PHPTelebot JSON-encodes arrays.
+$bot->cmd('/poll', function () {
+    return Bot::sendPoll([
+        'question' => 'Which update transport are you using?',
+        'options' => [
+            ['text' => 'Long polling'],
+            ['text' => 'Webhook'],
+        ],
+        'is_anonymous' => false,
+        'allows_multiple_answers' => false,
+    ]);
+});
+
+// Stream a temporary draft, then send the final message.
+$bot->cmd('/draft', function () {
+    Bot::sendMessageDraft([
+        'draft_id' => time(),
+        'text' => 'Preparing the final response...',
+    ]);
+
+    return Bot::sendMessage('Final response persisted in the chat.');
 });
 
 // custom regex
@@ -70,14 +117,52 @@ $bot->on('inline', function ($text) {
     $results[] = [
         'type' => 'article',
         'id' => 'unique_id1',
-        'title' => $text,
-        'message_text' => 'Lorem ipsum dolor sit amet',
+        'title' => $text ?: 'PHPTelebot sample',
+        'input_message_content' => [
+            'message_text' => 'Inline result from PHPTelebot',
+        ],
     ];
     $options = [
         'cache_time' => 3600,
     ];
 
     return Bot::answerInlineQuery($results, $options);
+});
+
+// Callback query from the inline keyboard.
+$bot->on('callback', function ($data) {
+    Bot::answerCallbackQuery('Callback data: '.$data);
+
+    return Bot::sendMessage('Callback query handled.', ['reply' => true]);
+});
+
+// Business messages can be answered with the current business connection.
+$bot->on('business_message', function () {
+    return Bot::sendMessage('Business message received.');
+});
+
+// Guest messages must be answered with answerGuestQuery().
+$bot->on('guest_message', function () {
+    return Bot::answerGuestQuery([
+        'type' => 'article',
+        'id' => 'guest_reply',
+        'title' => 'PHPTelebot guest reply',
+        'input_message_content' => [
+            'message_text' => 'Guest message received by PHPTelebot.',
+        ],
+    ]);
+});
+
+// Reaction updates are only delivered when requested in allowed_updates.
+$bot->on('message_reaction|message_reaction_count', function ($update) {
+    error_log('Reaction update: '.json_encode($update));
+});
+
+// Fallback for messages that did not match a command or specific event.
+$bot->on('*', function () {
+    if (Bot::updateType() == 'message') {
+        return Bot::sendMessage('Hi, human! I am a bot.');
+    }
 });
 
 $bot->run();

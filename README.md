@@ -13,6 +13,85 @@ Telegram bot framework written in PHP
 - PHP 5.4+
 - Telegram Bot API Token - Talk to [@BotFather](https://telegram.me/@BotFather) and generate one.
 
+## Latest Telegram Bot API support
+
+PHPTelebot has been updated for the current [Telegram Bot API 10.0](https://core.telegram.org/bots/api#may-8-2026) release. The wrapper keeps the old simple helpers, but now supports current request payloads, update names, and newer Telegram features without requiring a dedicated method for every endpoint.
+
+### Request handling updates
+
+- Any Telegram Bot API method can be called through `Bot::<methodName>()`.
+- Array parameters are JSON-encoded automatically, including `reply_markup`, `reply_parameters`, `media`, `reaction`, `allowed_updates`, and business/gift/story payloads.
+- Local file paths are uploaded automatically for top-level `InputFile` fields such as `photo`, `video`, `animation`, `audio`, `document`, `sticker`, `voice`, `video_note`, `live_photo`, `thumbnail`, `cover`, and `certificate`.
+- When possible, PHPTelebot fills `chat_id`, `message_thread_id`, `direct_messages_topic_id`, and `business_connection_id` from the current update.
+- `reply => true` now creates Telegram's modern `reply_parameters` payload.
+
+```php
+Bot::setMessageReaction([
+    'chat_id' => 123456,
+    'message_id' => 10,
+    'reaction' => [
+        ['type' => 'custom_emoji', 'custom_emoji_id' => '5368324170671202286'],
+    ],
+]);
+
+Bot::sendLivePhoto([
+    'chat_id' => 123456,
+    'live_photo' => '/path/to/live-video.mp4',
+    'photo' => '/path/to/photo.jpg',
+]);
+```
+
+### New update and event coverage
+
+Use `Bot::updateType()` for the top-level Telegram update name and `Bot::type()` for the message content/event type. Handlers registered with `$bot->on()` can now target current update names:
+
+```php
+$bot->on('message_reaction|message_reaction_count', function ($update) {
+    // React to message reaction updates.
+});
+
+$bot->on('guest_message', function ($message) {
+    return Bot::answerGuestQuery([
+        'type' => 'article',
+        'id' => 'guest-reply',
+        'title' => 'Reply',
+        'input_message_content' => [
+            'message_text' => 'Hello from PHPTelebot',
+        ],
+    ]);
+});
+```
+
+Supported top-level updates include `business_connection`, `business_message`, `edited_business_message`, `deleted_business_messages`, `guest_message`, `message_reaction`, `message_reaction_count`, `chosen_inline_result`, `shipping_query`, `pre_checkout_query`, `purchased_paid_media`, `poll_answer`, `my_chat_member`, `chat_member`, `chat_join_request`, `chat_boost`, `removed_chat_boost`, and `managed_bot`.
+
+For long polling updates that Telegram does not send by default, pass `allowed_updates` to the constructor:
+
+```php
+$bot = new PHPTelebot('TOKEN', 'BOT_USERNAME', [
+    'allowed_updates' => [
+        'message',
+        'callback_query',
+        'chat_member',
+        'message_reaction',
+        'message_reaction_count',
+        'business_message',
+        'guest_message',
+        'managed_bot',
+    ],
+]);
+```
+
+### New method coverage
+
+Newer Bot API features are available by passing Telegram parameter names directly:
+
+- Guest mode: `answerGuestQuery()`.
+- Reactions and chat management: `setMessageReaction()`, `deleteMessageReaction()`, `deleteAllMessageReactions()`, `setChatMemberTag()`, `getUserChatBoosts()`, `approveSuggestedPost()`, and `declineSuggestedPost()`.
+- Modern sending/editing: `sendAnimation()`, `sendVideoNote()`, `sendPaidMedia()`, `sendMediaGroup()`, `sendLivePhoto()`, `sendChecklist()`, `sendMessageDraft()`, `editMessageMedia()`, `editMessageLiveLocation()`, and `editMessageChecklist()`.
+- Managed bots and business accounts: `getManagedBotToken()`, `replaceManagedBotToken()`, `getManagedBotAccessSettings()`, `setManagedBotAccessSettings()`, `getBusinessConnection()`, `readBusinessMessage()`, `deleteBusinessMessages()`, `setBusinessAccountName()`, `setBusinessAccountUsername()`, `setBusinessAccountBio()`, `setBusinessAccountProfilePhoto()`, `removeBusinessAccountProfilePhoto()`, `setBusinessAccountGiftSettings()`, `getBusinessAccountStarBalance()`, `transferBusinessAccountStars()`, and `getBusinessAccountGifts()`.
+- Gifts, stars, and stories: `getAvailableGifts()`, `sendGift()`, `giftPremiumSubscription()`, `getUserGifts()`, `getChatGifts()`, `convertGiftToStars()`, `upgradeGift()`, `transferGift()`, `postStory()`, `repostStory()`, `editStory()`, `deleteStory()`, `getMyStarBalance()`, `getStarTransactions()`, `refundStarPayment()`, and `editUserStarSubscription()`.
+- Backward-compatible aliases still work: `Bot::kickChatMember()` maps to `banChatMember()`, and `Bot::getChatMembersCount()` maps to `getChatMemberCount()`.
+
 ## Installation
 
 ### Using [Composer](https://getcomposer.org)
@@ -97,12 +176,6 @@ You can also see my other [sample](https://github.com/radyakaze/phptelebot/blob/
 - If function parameters is more than one, PHPTelebot will split text by space.
 - If you don't set chat_id on options bot will send message to current chat.
 - If you add option **reply => true**, bot will reply to the current message with Telegram's `reply_parameters` format (only when you don't set custom `chat_id`, `reply_parameters`, or `reply_to_message_id`).
-- For long polling updates that Telegram does not send by default, pass `allowed_updates` in the constructor:
-```php
-$bot = new PHPTelebot('TOKEN', 'BOT_USERNAME', [
-    'allowed_updates' => ['message', 'callback_query', 'chat_member', 'message_reaction', 'message_reaction_count'],
-]);
-```
 
 ## Commands
 
