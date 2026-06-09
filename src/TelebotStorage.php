@@ -61,6 +61,7 @@ class TelebotStorage
 
         if ($chatId !== null) {
             self::upsertChat($chat, $date);
+            self::upsertTopic($chatId, $topicId, $message, $date);
         }
 
         $stmt = $pdo->prepare('INSERT OR IGNORE INTO messages (update_id, chat_id, message_id, topic_id, user_id, username, first_name, last_name, update_type, message_type, text, payload, created_at) VALUES (:update_id, :chat_id, :message_id, :topic_id, :user_id, :username, :first_name, :last_name, :update_type, :message_type, :text, :payload, :created_at)');
@@ -107,13 +108,13 @@ class TelebotStorage
     public static function messages($chatId = null)
     {
         if ($chatId) {
-            $stmt = self::db()->prepare('SELECT * FROM messages WHERE chat_id = :chat_id ORDER BY id DESC LIMIT 100');
+            $stmt = self::db()->prepare('SELECT messages.*, topics.name AS topic_name FROM messages LEFT JOIN topics ON topics.chat_id = messages.chat_id AND topics.topic_id = messages.topic_id WHERE messages.chat_id = :chat_id ORDER BY messages.id DESC LIMIT 100');
             $stmt->execute([':chat_id' => $chatId]);
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        $stmt = self::db()->query('SELECT * FROM messages ORDER BY id DESC LIMIT 100');
+        $stmt = self::db()->query('SELECT messages.*, topics.name AS topic_name FROM messages LEFT JOIN topics ON topics.chat_id = messages.chat_id AND topics.topic_id = messages.topic_id ORDER BY messages.id DESC LIMIT 100');
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -146,6 +147,7 @@ class TelebotStorage
         $pdo->exec('CREATE TABLE IF NOT EXISTS chats (chat_id INTEGER PRIMARY KEY, type TEXT, title TEXT, username TEXT, first_name TEXT, last_name TEXT, raw TEXT, first_seen INTEGER, last_seen INTEGER)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, update_id INTEGER UNIQUE, chat_id INTEGER, message_id INTEGER, topic_id INTEGER, user_id INTEGER, username TEXT, first_name TEXT, last_name TEXT, update_type TEXT, message_type TEXT, text TEXT, payload TEXT, created_at INTEGER)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS replies (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, topic_id INTEGER, reply_to_message_id INTEGER, text TEXT, response TEXT, created_at INTEGER)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS topics (chat_id INTEGER, topic_id INTEGER, name TEXT, icon_color INTEGER, raw TEXT, first_seen INTEGER, last_seen INTEGER, PRIMARY KEY (chat_id, topic_id))');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_messages_chat_created ON messages(chat_id, created_at)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_messages_topic ON messages(chat_id, topic_id)');
     }
@@ -184,6 +186,42 @@ class TelebotStorage
             ':first_seen' => $date,
             ':last_seen' => $date,
         ]);
+    }
+
+    private static function upsertTopic($chatId, $topicId, $message, $date)
+    {
+        if ($topicId === null) {
+            return;
+        }
+
+        $topic = null;
+        if (isset($message['forum_topic_created'])) {
+            $topic = $message['forum_topic_created'];
+        } elseif (isset($message['forum_topic_edited'])) {
+            $topic = $message['forum_topic_edited'];
+        }
+
+        $name = isset($topic['name']) ? $topic['name'] : null;
+        $iconColor = isset($topic['icon_color']) ? $topic['icon_color'] : null;
+        $exists = self::db()->prepare('SELECT topic_id FROM topics WHERE chat_id = :chat_id AND topic_id = :topic_id');
+        $exists->execute([':chat_id' => $chatId, ':topic_id' => $topicId]);
+
+        if ($exists->fetchColumn()) {
+            if ($name === null) {
+                $stmt = self::db()->prepare('UPDATE topics SET last_seen = :last_seen WHERE chat_id = :chat_id AND topic_id = :topic_id');
+                $stmt->execute([':chat_id' => $chatId, ':topic_id' => $topicId, ':last_seen' => $date]);
+
+                return;
+            }
+
+            $stmt = self::db()->prepare('UPDATE topics SET name = :name, icon_color = :icon_color, raw = :raw, last_seen = :last_seen WHERE chat_id = :chat_id AND topic_id = :topic_id');
+            $stmt->execute([':chat_id' => $chatId, ':topic_id' => $topicId, ':name' => $name, ':icon_color' => $iconColor, ':raw' => json_encode($topic), ':last_seen' => $date]);
+
+            return;
+        }
+
+        $stmt = self::db()->prepare('INSERT INTO topics (chat_id, topic_id, name, icon_color, raw, first_seen, last_seen) VALUES (:chat_id, :topic_id, :name, :icon_color, :raw, :first_seen, :last_seen)');
+        $stmt->execute([':chat_id' => $chatId, ':topic_id' => $topicId, ':name' => $name, ':icon_color' => $iconColor, ':raw' => json_encode($topic), ':first_seen' => $date, ':last_seen' => $date]);
     }
 
     private static function messageFromUpdate($update)
