@@ -89,6 +89,15 @@ $bot->cmd('/status', function () {
     return Bot::sendMessage($text, ['reply' => true]);
 });
 
+$bot->cmd('/dbug', function () {
+    $dbug = str_replace('```', '` ` `', json_encode(Bot::message(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+    return Bot::sendMessage("```json\n".$dbug."\n```", [
+        'parse_mode' => 'Markdown',
+        'reply' => true,
+    ]);
+});
+
 // Simple whoami command
 $bot->cmd('/whoami', function () {
     // Get message properties

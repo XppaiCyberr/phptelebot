@@ -108,6 +108,10 @@ class Bot
 
             return false;
         } else {
+            if (class_exists('TelebotStorage') && $action != 'getUpdates') {
+                TelebotStorage::logOutgoing($action, $data, $result);
+            }
+
             return $result;
         }
     }

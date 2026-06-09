@@ -58,26 +58,69 @@ class TelebotStorage
         $chatId = isset($chat['id']) ? $chat['id'] : null;
         $topicId = isset($message['message_thread_id']) ? $message['message_thread_id'] : null;
         $messageId = isset($message['message_id']) ? $message['message_id'] : null;
+        $replyToMessageId = isset($message['reply_to_message']['message_id']) ? $message['reply_to_message']['message_id'] : null;
 
         if ($chatId !== null) {
             self::upsertChat($chat, $date);
             self::upsertTopic($chatId, $topicId, $message, $date);
         }
 
-        $stmt = $pdo->prepare('INSERT OR IGNORE INTO messages (update_id, chat_id, message_id, topic_id, user_id, username, first_name, last_name, update_type, message_type, text, payload, created_at) VALUES (:update_id, :chat_id, :message_id, :topic_id, :user_id, :username, :first_name, :last_name, :update_type, :message_type, :text, :payload, :created_at)');
+        $stmt = $pdo->prepare('INSERT OR IGNORE INTO messages (update_id, chat_id, message_id, reply_to_message_id, topic_id, user_id, username, first_name, last_name, direction, update_type, message_type, text, payload, created_at) VALUES (:update_id, :chat_id, :message_id, :reply_to_message_id, :topic_id, :user_id, :username, :first_name, :last_name, :direction, :update_type, :message_type, :text, :payload, :created_at)');
         $stmt->execute([
             ':update_id' => isset($update['update_id']) ? $update['update_id'] : null,
             ':chat_id' => $chatId,
             ':message_id' => $messageId,
+            ':reply_to_message_id' => $replyToMessageId,
             ':topic_id' => $topicId,
             ':user_id' => isset($from['id']) ? $from['id'] : null,
             ':username' => isset($from['username']) ? $from['username'] : null,
             ':first_name' => isset($from['first_name']) ? $from['first_name'] : null,
             ':last_name' => isset($from['last_name']) ? $from['last_name'] : null,
+            ':direction' => 'in',
             ':update_type' => $updateType,
             ':message_type' => $messageType,
             ':text' => $text,
             ':payload' => json_encode($update),
+            ':created_at' => $date,
+        ]);
+    }
+
+    public static function logOutgoing($action, $request, $response)
+    {
+        if ($action != 'sendMessage') {
+            return;
+        }
+
+        $data = json_decode($response, true);
+        if (!isset($data['ok']) || !$data['ok'] || !isset($data['result'])) {
+            return;
+        }
+
+        $message = $data['result'];
+        $chat = isset($message['chat']) ? $message['chat'] : [];
+        $chatId = isset($chat['id']) ? $chat['id'] : (isset($request['chat_id']) ? $request['chat_id'] : null);
+        $topicId = isset($message['message_thread_id']) ? $message['message_thread_id'] : (isset($request['message_thread_id']) ? $request['message_thread_id'] : null);
+        $messageId = isset($message['message_id']) ? $message['message_id'] : null;
+        $replyToMessageId = isset($request['reply_parameters']['message_id']) ? $request['reply_parameters']['message_id'] : null;
+        $text = isset($message['text']) ? $message['text'] : (isset($request['text']) ? $request['text'] : '');
+        $date = isset($message['date']) ? $message['date'] : time();
+
+        if ($chatId !== null && !empty($chat)) {
+            self::upsertChat($chat, $date);
+        }
+
+        $stmt = self::db()->prepare('INSERT OR IGNORE INTO messages (update_id, chat_id, message_id, reply_to_message_id, topic_id, direction, update_type, message_type, text, payload, created_at) VALUES (:update_id, :chat_id, :message_id, :reply_to_message_id, :topic_id, :direction, :update_type, :message_type, :text, :payload, :created_at)');
+        $stmt->execute([
+            ':update_id' => null,
+            ':chat_id' => $chatId,
+            ':message_id' => $messageId,
+            ':reply_to_message_id' => $replyToMessageId,
+            ':topic_id' => $topicId,
+            ':direction' => 'out',
+            ':update_type' => 'bot_reply',
+            ':message_type' => 'text',
+            ':text' => $text,
+            ':payload' => $response,
             ':created_at' => $date,
         ]);
     }
@@ -145,11 +188,21 @@ class TelebotStorage
     {
         $pdo = self::$pdo;
         $pdo->exec('CREATE TABLE IF NOT EXISTS chats (chat_id INTEGER PRIMARY KEY, type TEXT, title TEXT, username TEXT, first_name TEXT, last_name TEXT, raw TEXT, first_seen INTEGER, last_seen INTEGER)');
-        $pdo->exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, update_id INTEGER UNIQUE, chat_id INTEGER, message_id INTEGER, topic_id INTEGER, user_id INTEGER, username TEXT, first_name TEXT, last_name TEXT, update_type TEXT, message_type TEXT, text TEXT, payload TEXT, created_at INTEGER)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, update_id INTEGER UNIQUE, chat_id INTEGER, message_id INTEGER, reply_to_message_id INTEGER, topic_id INTEGER, user_id INTEGER, username TEXT, first_name TEXT, last_name TEXT, direction TEXT DEFAULT \'in\', update_type TEXT, message_type TEXT, text TEXT, payload TEXT, created_at INTEGER)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS replies (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, topic_id INTEGER, reply_to_message_id INTEGER, text TEXT, response TEXT, created_at INTEGER)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS topics (chat_id INTEGER, topic_id INTEGER, name TEXT, icon_color INTEGER, raw TEXT, first_seen INTEGER, last_seen INTEGER, PRIMARY KEY (chat_id, topic_id))');
+        self::addColumn('messages', 'reply_to_message_id', 'INTEGER');
+        self::addColumn('messages', 'direction', 'TEXT DEFAULT \'in\'');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_messages_chat_created ON messages(chat_id, created_at)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_messages_topic ON messages(chat_id, topic_id)');
+    }
+
+    private static function addColumn($table, $column, $definition)
+    {
+        try {
+            self::$pdo->exec('ALTER TABLE '.$table.' ADD COLUMN '.$column.' '.$definition);
+        } catch (Exception $e) {
+        }
     }
 
     private static function upsertChat($chat, $date)
