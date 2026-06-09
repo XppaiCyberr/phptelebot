@@ -85,6 +85,8 @@ class PHPTelebot
         self::$token = $token;
         self::$username = $username;
         $this->_options = is_array($options) ? $options : [];
+        TelebotStorage::configure(isset($this->_options['database']) ? $this->_options['database'] : '');
+        unset($this->_options['database']);
     }
 
     /**
@@ -222,6 +224,7 @@ class PHPTelebot
     private function process()
     {
         $get = self::$getUpdates;
+        TelebotStorage::logUpdate($get);
         $message = $this->currentMessage();
         $run = false;
 
@@ -381,3 +384,4 @@ class PHPTelebot
 }
 
 require_once __DIR__.'/Bot.php';
+require_once __DIR__.'/TelebotStorage.php';
