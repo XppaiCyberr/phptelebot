@@ -103,6 +103,8 @@ require_once '/path/to/phptelebot/src/PHPTelebot.php';
 
 ## Web panel and SQLite logging
 
+<img width="1915" height="963" alt="Screenshot 2026-06-09 234140" src="https://github.com/user-attachments/assets/72b40469-75b2-44a4-b743-cf6eb26c0ccc" />
+
 PHPTelebot logs every received update to `data/telebot.sqlite` when the bot runs. Open `panel.php` in your PHP web server to monitor groups, topics, messages, and send replies from the browser.
 
 Set `panel_key=your-secret-key` in `x.c` or `TELEBOT_PANEL_KEY` in the environment to protect the panel. The panel reads the bot token from `x.c` (`token=...`) or `TELEBOT_TOKEN`.
