@@ -100,11 +100,11 @@ $bot->cmd('/split', function ($one, $two, $three) {
 
 // simple file upload
 $bot->cmd('/upload', function () {
-    $file = './composer.json';
+    $file = './sample.php';
 
     return Bot::sendDocument([
         'document' => $file,
-        'caption' => 'composer.json uploaded from a local path',
+        'caption' => 'sample.php uploaded from a local path',
     ]);
 });
 

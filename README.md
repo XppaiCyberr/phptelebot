@@ -94,32 +94,6 @@ Newer Bot API features are available by passing Telegram parameter names directl
 
 ## Installation
 
-### Using [Composer](https://getcomposer.org)
-
-To install PHPTelebot with Composer, just add the following to your `composer.json` file:
-
-```json
-{
-    "require": {
-        "radyakaze/phptelebot": "*"
-    }
-}
-```
-
-or by running the following command:
-
-```shell
-composer require radyakaze/phptelebot
-```
-
-Composer installs autoloader at `./vendor/autoloader.php`. to include the library in your script, add:
-
-```php
-require_once 'vendor/autoload.php';
-```
-
-### Install from source
-
 Download the PHP library from Github, then include `PHPTelebot.php` in your script:
 
 ```php
